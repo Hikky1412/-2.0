@@ -1,0 +1,74 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.spatial import Delaunay
+
+points = []
+depths = []
+
+def onclick(event):
+    global points, depths
+    x, y = event.xdata, event.ydata
+    if x is not None and y is not None:
+        try:
+            depth = float(input(f"Введите глубину для точки ({x:.2f}, {y:.2f}): "))
+            points.append((x, y))
+            depths.append(depth)
+            plt.plot(x, y, 'ko', markersize=3)
+            plt.text(x, y, f"{depth}", fontsize=8, ha='center', va='center')
+            plt.draw()
+        except ValueError:
+            print("Ошибка: Введите числовое значение для глубины.")
+
+
+
+def plot_isohypses(points, depths, contour_interval=10):
+    if len(points) != len(depths):
+        raise ValueError("Количество точек и глубин должно совпадать.")
+
+    x = np.array([p[0] for p in points])
+    y = np.array([p[1] for p in points])
+
+    if len(x) < 3: # Проверка на минимальное количество точек
+        print("Необходимо как минимум 3 точки для построения изогипс.")
+        return
+    try:
+        tri = Delaunay(np.array([x, y]).T)
+    except Exception as e: #  Обработка ошибки, если триангуляция невозможна
+        print(f"Ошибка при построении триангуляции: {e}. Возможно, точки лежат на одной прямой.")
+        return
+
+
+    plt.triplot(x, y, tri.simplices, color='lightgray')
+    for i, (xi, yi) in enumerate(points):
+        plt.text(xi, yi, f"{depths[i]}", fontsize=8, ha='center', va='center')
+        plt.plot(xi, yi, 'ko', markersize=3)
+
+    min_depth = min(depths)
+    max_depth = max(depths)
+    levels = np.arange(min_depth, max_depth + contour_interval, contour_interval)
+
+    plt.tricontour(x, y, tri.simplices, depths, levels=levels, colors='k', linestyles='-')
+
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.title("Изогипсы")
+    plt.gca().set_aspect('equal')
+    plt.show()
+
+
+
+fig, ax = plt.subplots()
+ax.set_title("Расстановка точек и глубин (правой кнопкой мыши - завершить)")
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+
+cid = fig.canvas.mpl_connect('button_press_event', onclick)
+
+def on_right_click(event):
+    if event.button == 3:
+        fig.canvas.mpl_disconnect(cid)
+        plot_isohypses(points, depths)
+
+cid_right_click = fig.canvas.mpl_connect('button_press_event', on_right_click)
+
+plt.show()
